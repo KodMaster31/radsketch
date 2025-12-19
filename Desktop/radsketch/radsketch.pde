@@ -1,70 +1,119 @@
 // Constants
 int Y_AXIS = 1;
 int X_AXIS = 2;
-color b1, b2, b3, c1, c2;
+
+// Colors for gradient (dynamic)
+color skyStartColor, skyEndColor;
+
+// Cloud properties
+Cloud[] clouds; // Bulut nesneleri için dizi
+int numClouds = 10; // Toplam bulut sayısı
+
+float cycleTime = 0; // Gece/gündüz döngüsü için zamanlayıcı
 
 void setup() {
   size(640, 480);
+  noStroke(); // Kenar çizgileri olmasın
 
-  // Define colors
+  // Başlangıç renkleri (gün doğumu gibi)
+  skyStartColor = color(255, 150, 0); // Turuncu
+  skyEndColor = color(0, 191, 255);   // Açık Mavi
 
-  b1 = color(0,191, 255);
-  b2 = color(0, 255, 0);
-  noLoop();
+  // Bulutları oluştur
+  clouds = new Cloud[numClouds];
+  for (int i = 0; i < numClouds; i++) {
+    clouds[i] = new Cloud();
+  }
 }
 
 void draw() {
-  // Background
-  setGradient(0, 0, width/2, height, b1, b2, Y_AXIS);
-  setGradient(width/2, 0, width/2, height, b1, b2, Y_AXIS);
- noStroke();
- fill(255, 255, 255);
-  ellipse (250, 30, 150, 60);
-  ellipse (200, 30, 70, 50);
-  ellipse (215, 40, 60, 60);
-  ellipse (300, 50, 50, 50);
-  ellipse (270, 50, 70, 50);
-    ellipse (260, 75, 70, 50);
-  ellipse (300, 25, 60, 40);
-    ellipse (310, 75, 70, 30);
-  ellipse (320, 25, 60, 50);
+  // Gece/Gündüz Döngüsü Yönetimi
+  cycleTime += 0.005; // Döngü hızını ayarla
+  if (cycleTime > TWO_PI) { // TWO_PI = 360 derece
+    cycleTime = 0;
+  }
 
- noStroke();
- fill(255, 255, 255);
-ellipse (450, 70, 80, 40);
-  ellipse (400, 70, 70, 50);
-  ellipse (415, 80, 60, 60);
-  ellipse (500, 90, 50, 50);
-  ellipse (470, 90, 70, 50);
-    ellipse (460, 105, 70, 50);
-  ellipse (475, 45, 80, 40);
-  ellipse (510, 95, 90, 30);
-  ellipse (510, 55, 80, 70);
-  ellipse(200, 635, 80,70);
-  stroke(255,0,0);
+  // Sinüs dalgası kullanarak renkleri değiştir
+  // Bu, renklerin yumuşakça geçiş yapmasını sağlar
+  float r1 = map(sin(cycleTime), -1, 1, 0, 255); // Kırmızı bileşeni
+  float g1 = map(sin(cycleTime + PI/2), -1, 1, 0, 255); // Yeşil bileşeni
+  float b1 = map(sin(cycleTime + PI), -1, 1, 0, 255); // Mavi bileşeni
 
-noStroke();
+  skyStartColor = color(r1, g1, b1);
+  skyEndColor = color(255 - r1, 255 - g1, 255 - b1); // Ters renkler
+
+  // Fare hareketiyle de renkleri etkile (daha dinamik bir his için)
+  float mouseColorInfluence = map(mouseX, 0, width, 0, 1);
+  skyStartColor = lerpColor(skyStartColor, color(mouseX % 255, mouseY % 255, (mouseX+mouseY) % 255), mouseColorInfluence * 0.1);
+  skyEndColor = lerpColor(skyEndColor, color(255 - (mouseX % 255), 255 - (mouseY % 255), 255 - ((mouseX+mouseY) % 255)), mouseColorInfluence * 0.1);
+
+
+  // Arka planı çiz
+  setGradient(0, 0, width, height, skyStartColor, skyEndColor, Y_AXIS);
+
+  // Bulutları hareket ettir ve çiz
+  for (int i = 0; i < numClouds; i++) {
+    clouds[i].move();
+    clouds[i].display();
+  }
 }
 
-void setGradient(int x, int y, float w, float h, color c1, color c2, int axis ) {
-
+// Gradyan çizimi fonksiyonu (aynı kaldı)
+void setGradient(int x, int y, float w, float h, color c1, color c2, int axis) {
   noFill();
-
-  if (axis == Y_AXIS) {  // Top to bottom gradient
-    for (int i = y; i <= y+h; i++) {
-      float inter = map(i, y, y+h, 0, 1);
+  if (axis == Y_AXIS) {
+    for (int i = y; i <= y + h; i++) {
+      float inter = map(i, y, y + h, 0, 1);
       color c = lerpColor(c1, c2, inter);
       stroke(c);
-      line(x, i, x+w, i);
+      line(x, i, x + w, i);
     }
-  }  
-  else if (axis == X_AXIS) {  // Left to right gradient
-    for (int i = x; i <= x+w; i++) {
-      float inter = map(i, x, x+w, 0, 1);
+  } else if (axis == X_AXIS) {
+    for (int i = x; i <= x + w; i++) {
+      float inter = map(i, x, x + w, 0, 1);
       color c = lerpColor(c1, c2, inter);
       stroke(c);
-      line(i, y, i, y+h);
+      line(i, y, i, y + h);
     }
   }
 }
 
+// Bulut sınıfı
+class Cloud {
+  float x, y;
+  float speed;
+  float sizeMultiplier;
+
+  Cloud() {
+    // Rastgele başlangıç konumları, hızlar ve boyutlar
+    x = random(-width, width * 2); // Ekran dışından da başlayabilir
+    y = random(height * 0.1, height * 0.4); // Ekranın üst çeyreğinde
+    speed = random(0.5, 2);
+    sizeMultiplier = random(0.7, 1.5);
+  }
+
+  void move() {
+    x += speed; // Sağa doğru hareket
+    if (x > width * 1.5) { // Ekranın çok dışına çıktığında
+      x = -width * 0.5; // Sol taraftan tekrar içeri gelsin
+      y = random(height * 0.1, height * 0.4); // Yeni bir y konumunda
+      speed = random(0.5, 2); // Yeni bir hızda
+    }
+  }
+
+  void display() {
+    fill(255, 255, 255, 200); // Hafif şeffaf beyaz bulutlar
+    
+    // Rastgele boyutlarda ve konumda elipsler çizerek bulut oluştur
+    // Orijinal kodun elipsleri modifiye edildi
+    ellipse(x + 0 * sizeMultiplier, y + 0 * sizeMultiplier, 150 * sizeMultiplier, 60 * sizeMultiplier);
+    ellipse(x - 50 * sizeMultiplier, y + 0 * sizeMultiplier, 70 * sizeMultiplier, 50 * sizeMultiplier);
+    ellipse(x - 35 * sizeMultiplier, y + 10 * sizeMultiplier, 60 * sizeMultiplier, 60 * sizeMultiplier);
+    ellipse(x + 50 * sizeMultiplier, y + 20 * sizeMultiplier, 50 * sizeMultiplier, 50 * sizeMultiplier);
+    ellipse(x + 20 * sizeMultiplier, y + 20 * sizeMultiplier, 70 * sizeMultiplier, 50 * sizeMultiplier);
+    ellipse(x + 10 * sizeMultiplier, y + 45 * sizeMultiplier, 70 * sizeMultiplier, 50 * sizeMultiplier);
+    ellipse(x + 50 * sizeMultiplier, y - 5 * sizeMultiplier, 60 * sizeMultiplier, 40 * sizeMultiplier);
+    ellipse(x + 60 * sizeMultiplier, y + 45 * sizeMultiplier, 70 * sizeMultiplier, 30 * sizeMultiplier);
+    ellipse(x + 70 * sizeMultiplier, y - 5 * sizeMultiplier, 60 * sizeMultiplier, 50 * sizeMultiplier);
+  }
+}
